@@ -221,7 +221,18 @@ class QueryRoIHead(CascadeRoIHead):
                                                mask_targets, pos_labels)
         mask_results.update(loss_mask)
         return mask_results
+    
+    def _track_forward_train(self,stage,x,rois,object_feats,attn_feats):
 
+        track_roi_extractor = self.mask_roi_extractor[stage]
+        
+        track_feats = self.track_roi_extractor(x[:track_roi_extractor.num_inputs],rois)
+        inst_emb = self.track_head[stage].get_emb(track_feats,attn_feats)
+        match_score = self.track_head.score(inst_emb)
+        loss_match = self.track_head.loss(match_score)
+
+        return loss_match
+    
     def forward_train(self,
                       x,
                       proposal_boxes,
@@ -274,6 +285,7 @@ class QueryRoIHead(CascadeRoIHead):
             bbox_results = self._bbox_forward(stage, x, rois, object_feats,
                                               img_metas)
             all_stage_bbox_results.append(bbox_results)
+            
             if gt_bboxes_ignore is None:
                 # TODO support ignore
                 gt_bboxes_ignore = [None for _ in range(num_imgs)]
@@ -306,6 +318,10 @@ class QueryRoIHead(CascadeRoIHead):
                 mask_results = self._mask_forward_train(stage, x, bbox_results['attn_feats'], 
                                             sampling_results, gt_masks, self.train_cfg[stage])
                 single_stage_loss['loss_mask'] = mask_results['loss_mask']
+
+            if self.with_track:
+                loss_match = self._track_forward_train(self,stage,x,rois,object_feats,attn_feats)
+                single_stage_loss['loss_match'] = loss_match
 
             for key, value in single_stage_loss.items():
                 all_stage_loss[f'stage{stage}_{key}'] = value * \
@@ -345,6 +361,7 @@ class QueryRoIHead(CascadeRoIHead):
                 dimension 5 represents (x1, y1, x2, y2, score).
         """
         assert self.with_bbox, 'Bbox head must be implemented.'
+        assert self.with_track, 'Track head must be implemented'
         # Decode initial proposals
         num_imgs = len(img_metas)
         proposal_list = [proposal_boxes[i] for i in range(num_imgs)]

@@ -13,6 +13,7 @@ class BaseRoIHead(BaseModule, metaclass=ABCMeta):
                  bbox_head=None,
                  mask_roi_extractor=None,
                  mask_head=None,
+                 track_head=None,
                  shared_head=None,
                  train_cfg=None,
                  test_cfg=None,
@@ -31,6 +32,9 @@ class BaseRoIHead(BaseModule, metaclass=ABCMeta):
         if mask_head is not None:
             self.init_mask_head(mask_roi_extractor, mask_head)
 
+        if track_head is not None:
+            self.init_track_head(track_roi_extractor,track_head)
+
         self.init_assigner_sampler()
 
     @property
@@ -47,6 +51,11 @@ class BaseRoIHead(BaseModule, metaclass=ABCMeta):
     def with_shared_head(self):
         """bool: whether the RoI head contains a `shared_head`"""
         return hasattr(self, 'shared_head') and self.shared_head is not None
+    
+    @property
+    def with_track(self):
+        """bool: whether the RoI head contains a `track_head`"""
+        return hasattr(self, 'track') and self.track_head is not None
 
     @abstractmethod
     def init_bbox_head(self):
@@ -61,6 +70,11 @@ class BaseRoIHead(BaseModule, metaclass=ABCMeta):
     @abstractmethod
     def init_assigner_sampler(self):
         """Initialize assigner and sampler."""
+        pass
+
+    @abstractmethod
+    def init_track_head(self):
+        """Initialize ``track_head``"""
         pass
 
     @abstractmethod
